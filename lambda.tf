@@ -3,7 +3,7 @@ locals {
 }
 data "archive_file" "zip_the_python_code" {
   type        = "zip"
-  source_file = "testmodule.py"
+  source_file = "${path.module}/testmodule.py"
   output_path = local.lambda_code_location
 }
 
@@ -14,5 +14,5 @@ resource "aws_lambda_function" "lambda_funct" {
   handler          = "var.handler"
   runtime          = "var.runtime"
   depends_on       = [aws_iam_role_policy_attachment.logs]
-  source_code_hash = filebase64sha256("testmodule.py")
+  source_code_hash = filebase64sha256("${path.module}/testmodule.py")
 }
