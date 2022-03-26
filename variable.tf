@@ -15,3 +15,7 @@ variable "runtime" {
   type        = string
   default     = ""
 }
+variable "source_path" {
+  description = "The absolute path to a local file or directory containing your Lambda source code"
+  type        = string
+}
