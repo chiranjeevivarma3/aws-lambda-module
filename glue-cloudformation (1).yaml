@@ -1,0 +1,102 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: creates glue connection and Job
+Parameters:
+  RedshiftArn:
+    Type: AWS::SSM::Parameter::Value<String>
+  JdbcUrl:
+    Type: AWS::SSM::Parameter::Value<String>
+  SubnetId2:
+    Type:  AWS::SSM::Parameter::Value<String>
+  securityGroupid:
+    Type: AWS::SSM::Parameter::Value<String>
+  RedshiftAvailabilityZone:
+    Type: AWS::SSM::Parameter::Value<String>
+  S3scriptlocation:
+    Type: String
+
+
+Resources:
+  S3DbConnection:
+    Type: "AWS::Glue::Connection"
+    Properties:
+      CatalogId: !Ref AWS::AccountId
+      ConnectionInput:
+        ConnectionProperties:
+          Name: S3_CONNECTION
+          Type: Network
+        ConnectionType: NETWORK
+        Description: s3 datastore connection
+        Name: s3connection
+        PhysicalConnectionRequirements:
+          AvailabilityZone: !Ref RedshiftAvailabilityZone
+          SecurityGroupIdList:
+            - !Ref securityGroupid
+          SubnetId: !Ref SubnetId2
+      # ConnectionInput:
+      #   Description: "JDBC Connection to my RDS DB"
+      #   PhysicalConnectionRequirements:
+      #     AvailabilityZone: !Ref RedshiftAvailabilityZone
+      #     SecurityGroupIdList:
+      #     - !Ref securityGroupid
+      #     SubnetId: !Ref SubnetId2
+      #   ConnectionType: "Network"
+      #   # ConnectionType: "JDBC"
+      #   # ConnectionProperties:
+      #   #   "JDBC_CONNECTION_URL": !Ref JdbcUrl
+      #   #   "USERNAME": 
+      #   #     Fn::Sub: "{{resolve:secretsmanager:${RedshiftArn}:SecretString:username}}"
+      #   #   "PASSWORD": 
+      #   #     Fn::Sub: "{{resolve:secretsmanager:${RedshiftArn}:SecretString:password}}"
+  GlueRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "glue.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+        -
+          PolicyName: "root"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action: "*"
+                Resource: "*"
+
+  GlueJob:
+    Type: AWS::Glue::Job
+    Properties:
+      Name: Demogluejob
+      Connections: 
+        Connections: 
+          - s3
+          - !Ref S3DbConnection
+      Description: creates glue job
+      MaxRetries: 0
+      Role: !Ref GlueRole
+      Command:
+        Name: glueetl
+        PythonVersion: "3"
+        ScriptLocation: !Sub "${S3scriptlocation}/gluejob.py"
+      GlueVersion: "3.0"
+      ExecutionProperty:
+        MaxConcurrentRuns: 2
+      WorkerType: G.1X
+      NumberOfWorkers: 2
+      DefaultArguments:  
+        "--enable-continuous-cloudwatch-log": true
+        "--enable-continuous-log-filter": true
+        "--enable-metrics": ""
+        "--job-bookmark-option": job-bookmark-disable
+        "--TempDir": !Sub "${S3scriptlocation}/tmp"
+        "--extra-py-files": !Sub "${S3scriptlocation}/utils.py"
+        "--file_name": "testing argument"
